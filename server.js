@@ -181,6 +181,11 @@ app.get("/ig-search", async (req, res) => {
     // Step 4: Handle non-200 responses (user doesn't exist or API error)
     if (!response.ok) {
       console.log(`[NOT FOUND] ${username} - Status: ${response.status}`);
+      // Try to get error details
+      try {
+        const errorText = await response.text();
+        console.log(`[ERROR DETAILS] ${username}: ${errorText.substring(0, 200)}`);
+      } catch (e) {}
       return res.json({ exists: false });
     }
 
@@ -227,10 +232,45 @@ app.get("/ig-search", async (req, res) => {
   } catch (error) {
     // Step 11: Handle any errors (network issues, timeouts, etc.)
     console.error(`[ERROR] ${username}:`, error.message);
+    console.error(`[ERROR STACK] ${error.stack}`);
     
     res.status(500).json({
       exists: false,
       error: "Failed to fetch Instagram profile",
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+});
+
+// Debug endpoint to test Instagram API connectivity
+app.get("/debug/instagram", async (req, res) => {
+  try {
+    console.log("[DEBUG] Testing Instagram API...");
+    const response = await fetch(
+      `${INSTAGRAM_API_URL}?username=instagram`,
+      {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "application/json",
+          "X-IG-App-ID": IG_APP_ID,
+        },
+        timeout: 10000,
+      }
+    );
+    
+    res.json({
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      url: `${INSTAGRAM_API_URL}?username=instagram`,
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+      type: error.constructor.name,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 });
