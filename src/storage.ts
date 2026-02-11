@@ -9,31 +9,16 @@ import { ProxyAgent } from "undici";
 
 /**
  * Download an image buffer from a URL.
- * Supports proxy if configured via PROXY_URL environment variable.
+ * Note: Does NOT use proxy for CDN downloads. Vercel IPs typically not flagged by Instagram.
  */
 async function downloadImage(url: string): Promise<Buffer> {
-  // Disable cert verification globally when using proxy (for self-signed certs)
-  if (config.proxyUrl && process.env.NODE_TLS_REJECT_UNAUTHORIZED !== "0") {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-  }
-
-  const fetchOptions: RequestInit & { dispatcher?: any } = {
+  const fetchOptions: RequestInit = {
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
       Referer: "https://www.instagram.com/",
     },
   };
-
-  // Add dispatcher (undici proxy agent) if configured
-  if (config.proxyUrl) {
-    try {
-      const dispatcher = new ProxyAgent(config.proxyUrl);
-      fetchOptions.dispatcher = dispatcher;
-    } catch (err) {
-      console.warn("[storage] Failed to create proxy dispatcher:", err);
-    }
-  }
 
   const response = await fetch(url, fetchOptions);
 

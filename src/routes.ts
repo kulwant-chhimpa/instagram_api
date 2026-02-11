@@ -76,9 +76,19 @@ router.get("/instagram", async (req: Request, res: Response) => {
     }
 
     // ── Upload profile picture to Supabase ──────────────────────────────
-    // Image upload through proxy fails on Instagram CDN URLs (402 error)
-    // Fallback: Use Instagram's original URL (still works fine for low traffic)
     let publicPicUrl = profile.profilePicUrlHd;
+    try {
+      console.log(`[route] Uploading picture for @${username} to Supabase...`);
+      publicPicUrl = await uploadProfilePic(username, profile.profilePicUrlHd);
+      console.log(`[storage] Successfully uploaded @${username} to Supabase`);
+    } catch (err) {
+      console.warn(
+        `[storage] Upload failed, falling back to Instagram URL:`,
+        err instanceof Error ? err.message : err
+      );
+      // Fallback to Instagram URL if upload fails
+      publicPicUrl = profile.profilePicUrlHd;
+    }
 
     // ── Cache the result ────────────────────────────────────────────────
     await setCache({
