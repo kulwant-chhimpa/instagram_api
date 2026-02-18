@@ -96,8 +96,9 @@ export default {
 
       const data = await igResponse.json();
 
-      // Extract profile information
-      if (!data.user) {
+      // Extract profile information (Instagram returns data nested in data.data.user)
+      const user = data?.data?.user;
+      if (!user) {
         return new Response(
           JSON.stringify({ exists: false }),
           { status: 200, headers: { "Content-Type": "application/json" } }
@@ -106,10 +107,10 @@ export default {
 
       const profile = {
         exists: true,
-        username: data.user.username,
-        profilePicUrl: data.user.profile_pic_url_hd || data.user.profile_pic_url,
-        followers: data.user.follower_count || 0,
-        following: data.user.following_count || 0,
+        username: user.username,
+        profilePicUrl: user.profile_pic_url_hd || user.profile_pic_url,
+        followers: user.edge_followed_by?.count || user.follower_count || 0,
+        following: user.edge_follow?.count || user.following_count || 0,
       };
 
       // Cache for 24 hours in KV
