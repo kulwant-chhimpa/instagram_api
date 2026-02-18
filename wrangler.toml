@@ -1,12 +1,11 @@
 name = "instagram-api-worker"
-type = "javascript"
 main = "cloudflare-worker.js"
 compatibility_date = "2024-01-01"
 
 # KV namespace binding for caching
 [[kv_namespaces]]
 binding = "INSTAGRAM_CACHE"
-id = "YOUR_KV_NAMESPACE_ID"  # Replace with actual ID from Cloudflare
+id = "7f67a09565104479a5ebd7f20e37a4c7"
 
 # Environment-specific settings
 [env.production]
