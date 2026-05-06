@@ -4,8 +4,8 @@
 
 - Vercel account (free at https://vercel.com)
 - GitHub account (repo should be pushed)
-- Bright Data proxy credentials (from your .env)
-- Supabase credentials (if using image storage)
+- Cloudflare Worker URL (from your .env)
+- Supabase credentials (for Postgres cache)
 
 ---
 
@@ -54,8 +54,7 @@ vercel --prod
 | Key | Value | Example |
 |-----|-------|---------|
 | `NODE_ENV` | `production` | |
-| `NODE_TLS_REJECT_UNAUTHORIZED` | `0` | |
-| `PROXY_URL` | Your Bright Data URL | `http://brd-customer-...:...@brd.superproxy.io:33335` |
+| `CF_WORKER_URL` | Cloudflare Worker endpoint | `https://instagram-api-worker.YOUR_DOMAIN.workers.dev` |
 | `PORT` | `3000` | (Vercel sets this automatically) |
 | `SUPABASE_URL` | Your Supabase URL | `https://your-project.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Your service role key | `eyJhbGc...` |
@@ -112,13 +111,10 @@ Expected URLs:
 ## Environment Variables Reference
 
 ```bash
-# Required - Bright Data Proxy
-PROXY_URL=http://brd-customer-hl_889b164b-zone-residential_proxy1:gs95wzge7vp6@brd.superproxy.io:33335
+# Required - Cloudflare Worker proxy endpoint
+CF_WORKER_URL=https://instagram-api-worker.YOUR_DOMAIN.workers.dev
 
-# Required for TLS (proxy uses self-signed cert)
-NODE_TLS_REJECT_UNAUTHORIZED=0
-
-# Optional - Supabase Image Storage
+# Required - Supabase Postgres cache
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
@@ -143,14 +139,14 @@ Common issues:
 
 ### 429 Rate Limit Errors in Production
 
-1. Check Bright Data proxy is added to env vars
-2. Make sure `PROXY_URL` value is complete and correct
+1. Ensure `CF_WORKER_URL` is set correctly
+2. Increase cache TTL to reduce external fetches
 3. Redeploy: `vercel --prod`
 
 ### 502/503 Errors
 
 - Check logs in Vercel dashboard
-- Verify Bright Data proxy is accessible
+- Verify Cloudflare Worker endpoint is accessible
 - Check SUPABASE_URL is valid
 - Try `vercel --prod` again
 
@@ -218,7 +214,7 @@ git push origin main
 | Component | Cost |
 |-----------|------|
 | **Vercel** | Free (Hobby plan) |
-| **Bright Data Proxy** | $5.99/month |
+| **Cloudflare Workers** | Free tier |
 | **Supabase** | Free (up to 500MB storage) |
 | **Total** | ~$6/month |
 
@@ -231,8 +227,7 @@ Perfect for 100-1000 req/day! 💰
 - [ ] Code pushed to GitHub
 - [ ] Vercel project created
 - [ ] Environment variables added:
-  - [ ] `PROXY_URL`
-  - [ ] `NODE_TLS_REJECT_UNAUTHORIZED=0`
+  - [ ] `CF_WORKER_URL`
   - [ ] `SUPABASE_URL`
   - [ ] `SUPABASE_SERVICE_ROLE_KEY`
 - [ ] Redeployed after env vars

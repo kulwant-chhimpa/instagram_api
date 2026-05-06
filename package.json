@@ -1,7 +1,7 @@
 {
   "name": "instagram-api",
   "version": "1.0.0",
-  "description": "Backend API service to fetch public Instagram profile data and cache profile pictures in Supabase Storage",
+  "description": "Backend API service to fetch public Instagram counts and cache responses in Supabase Postgres + memory",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -16,8 +16,7 @@
     "@supabase/supabase-js": "^2.45.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
-    "express-rate-limit": "^7.4.0",
-    "undici": "^7.21.0"
+    "express-rate-limit": "^7.4.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

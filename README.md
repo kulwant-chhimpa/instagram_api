@@ -1,6 +1,6 @@
 # Instagram Profile API
 
-Backend API service that fetches public Instagram profile data and caches profile pictures in Supabase Storage.
+Backend API service that fetches public Instagram profile counts and caches responses in memory + Supabase Postgres.
 
 ## Architecture
 
@@ -13,14 +13,13 @@ GET /api/instagram?username=<username>
   ├─ Cache hit? → Return cached response (memory → Supabase Postgres)
   │
   └─ Cache miss:
-       ├─ Fetch profile from Instagram public web API
-       ├─ Download profile picture
-       ├─ Upload to Supabase Storage
+       ├─ Fetch follower/following from Instagram public web API
+       ├─ Build image URL: https://images.pathsocial.com/api/instagram/<username>
        ├─ Cache result (memory + Postgres)
        └─ Return JSON response
 ```
 
-**Stack:** Express.js + TypeScript + Supabase (Storage + Postgres)
+**Stack:** Express.js + TypeScript + Supabase Postgres + Cloudflare Worker proxy
 
 **Why Express over Cloudflare Workers:**
 - Full control over outbound HTTP headers (critical for Instagram's UA validation)
@@ -39,21 +38,13 @@ GET /api/instagram?username=<username>
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Service role key (not the anon key) |
 | `PORT` | | Server port (default: `3000`) |
 | `CACHE_TTL_HOURS` | | Cache duration in hours (default: `24`) |
-| `PROXY_URL` | | Optional proxy URL (e.g., `http://proxy.example.com:8080`) |
+| `CF_WORKER_URL` | ✅ | Cloudflare Worker endpoint used as Instagram API proxy |
 
 ---
 
 ## Supabase Setup
 
-### 1. Create the Storage Bucket
-
-1. Go to **Supabase Dashboard → Storage**
-2. Click **New Bucket**
-3. Name: `instagram-profiles`
-4. Toggle **Public** to **ON**
-5. Click **Create**
-
-### 2. Create the Cache Table
+### 1. Create the Cache Table
 
 Go to **SQL Editor → New Query** and run:
 
@@ -72,13 +63,13 @@ CREATE INDEX IF NOT EXISTS idx_instagram_cache_cached_at
 
 Or run the full setup file: `supabase/setup.sql`
 
-### 3. Get Your Keys
+### 2. Get Your Keys
 
 1. Go to **Settings → API**
 2. Copy the **Project URL** → `SUPABASE_URL`
 3. Copy the **service_role** key (under "Project API keys") → `SUPABASE_SERVICE_ROLE_KEY`
 
-> ⚠️ Use the **service_role** key, not the **anon** key. The service role key bypasses Row Level Security and is needed for Storage uploads.
+> ⚠️ Use the **service_role** key, not the **anon** key. The service role key is required for server-side table writes.
 
 ---
 
@@ -93,7 +84,7 @@ cp .env.example .env
 # Edit .env with your Supabase credentials
 
 # 3. Run in development mode (hot reload)
-NODE_TLS_REJECT_UNAUTHORIZED=0 npm run dev
+npm run dev
 
 # 4. Test it
 curl "http://localhost:3000/api/instagram?username=instagram"
@@ -109,7 +100,7 @@ node quick-test.js
 
 ```bash
 npm run build
-NODE_TLS_REJECT_UNAUTHORIZED=0 npm start
+npm start
 ```
 
 ---
@@ -141,7 +132,7 @@ Fast global deployment.
 
 ```bash
 fly launch
-fly secrets set PROXY_URL=...
+fly secrets set CF_WORKER_URL=...
 fly deploy
 ```
 
@@ -153,7 +144,6 @@ FROM node:20-alpine
 WORKDIR /app
 COPY . .
 RUN npm ci && npm run build
-ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 EXPOSE 3000
 CMD ["npm", "start"]
 ```
@@ -172,7 +162,7 @@ Fetch an Instagram profile by username.
 {
   "exists": true,
   "username": "instagram",
-  "profilePic": "https://xyz.supabase.co/storage/v1/object/public/instagram-profiles/instagram.jpg",
+  "imageUrl": "https://images.pathsocial.com/api/instagram/instagram",
   "followers": 686000000,
   "following": 76
 }
@@ -242,7 +232,7 @@ Cache flow:
 - **100–1,000 req/day** is well within Instagram's tolerance for unauthenticated public endpoint access
 - Cache at 24h TTL means at most ~1,000 unique Instagram API calls per day
 - The in-memory cache handles repeated lookups with zero latency
-- Supabase Storage serves profile pictures via CDN — fast and reliable
+- Image URLs are derived (no download/upload/storage step), reducing miss-path latency
 - If Instagram rate-limits you (429), the service returns `{ exists: false }` gracefully
 - For higher scale: add Redis caching, rotate User-Agents, or add request delays
 
@@ -251,9 +241,8 @@ Cache flow:
 ## Deployment Checklist
 
 - [ ] Supabase project created
-- [ ] Storage bucket `instagram-profiles` created (public)
 - [ ] Cache table `instagram_cache` created via SQL
-- [ ] `.env` configured with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+- [ ] `.env` configured with `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `CF_WORKER_URL`
 - [ ] `npm install` completed
 - [ ] `npm run build` succeeds
 - [ ] `npm start` runs without errors
@@ -271,7 +260,6 @@ src/
 ├── config.ts       # Environment variable loader
 ├── supabase.ts     # Supabase client singleton
 ├── instagram.ts    # Instagram public API fetch logic
-├── storage.ts      # Download image + upload to Supabase Storage
 ├── cache.ts        # Two-tier cache (memory + Postgres)
 └── routes.ts       # API route handler
 supabase/
@@ -303,11 +291,10 @@ Instagram's public web endpoint has aggressive rate-limiting to prevent bot abus
    - The service automatically retries 3 times with 2s, 4s, 8s delays
    - If all retries fail, the API returns `{ exists: false }`
 
-3. **Use a proxy** (if your IP is banned)
-   - Get a proxy service (e.g., Bright Data, Oxylabs, ScrapingBee, or any HTTP proxy)
-   - Set in `.env`: `PROXY_URL=http://proxy-host:port` or `PROXY_URL=http://user:pass@proxy:port`
-   - Rebuild and restart: `npm run build && npm start`
-   - The service will route all Instagram requests through the proxy
+3. **Use a Cloudflare Worker proxy endpoint**
+  - Deploy/verify your Worker URL and set `CF_WORKER_URL`
+  - Rebuild and restart: `npm run build && npm start`
+  - Your API requests route through the Worker, which can cache upstream responses
 
 4. **Wait for IP to be unbanned**
    - Instagram's IP bans are temporary (24-48 hours)

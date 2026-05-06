@@ -4,8 +4,8 @@
 
 All core functionality implemented and tested:
 - ✅ Instagram profile fetch with browser-accurate headers
-- ✅ Supabase Storage integration (image upload)
 - ✅ Two-tier caching (in-memory + Postgres)
+- ✅ Derived image URL (no upload/storage latency)
 - ✅ Rate limiting (60 req/min per IP)
 - ✅ Error handling with exponential backoff retry
 - ✅ Proper request validation and sanitization
@@ -24,17 +24,11 @@ All core functionality implemented and tested:
 
 Go to your Supabase project dashboard:
 
-**A. Create Storage Bucket**
-- Storage → New Bucket
-- Name: `instagram-profiles`
-- Toggle **Public** to **ON**
-- Click Create
-
-**B. Create Cache Table**
+**A. Create Cache Table**
 - SQL Editor → New Query
 - Run the contents of `supabase/setup.sql`
 
-**C. Get API Keys**
+**B. Get API Keys**
 - Settings → API
 - Copy: **Project URL** → `SUPABASE_URL`
 - Copy: **service_role** key → `SUPABASE_SERVICE_ROLE_KEY`
@@ -48,6 +42,7 @@ cp .env.example .env
 # Edit .env with your Supabase credentials
 # SUPABASE_URL=https://your-project.supabase.co
 # SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+# CF_WORKER_URL=https://your-worker.example.workers.dev
 
 # Install & build
 npm install
@@ -67,7 +62,7 @@ curl http://localhost:3000/health
 
 # Profile lookup (will check cache first, then Instagram)
 curl "http://localhost:3000/api/instagram?username=instagram"
-# → {"exists":true,"username":"instagram","profilePic":"...","followers":...,"following":...}
+# → {"exists":true,"username":"instagram","imageUrl":"...","followers":...,"following":...}
 
 # Not found
 curl "http://localhost:3000/api/instagram?username=nonexistent_user"
@@ -90,7 +85,7 @@ curl "http://localhost:3000/api/instagram?username=invalid%20user"
 {
   "exists": true,
   "username": "instagram",
-  "profilePic": "https://xyz.supabase.co/storage/v1/object/public/instagram-profiles/instagram.jpg",
+  "imageUrl": "https://images.pathsocial.com/api/instagram/instagram",
   "followers": 686000000,
   "following": 76
 }
@@ -129,7 +124,7 @@ Manually seed the cache without hitting Instagram. Useful for testing the full f
 ```json
 {
   "username": "instagram",
-  "profilePic": "https://url-to-profile-pic.jpg",
+  "imageUrl": "https://images.pathsocial.com/api/instagram/instagram",
   "followers": 686000000,
   "following": 76
 }
@@ -159,6 +154,7 @@ CACHE_TTL_HOURS=72  # 72 hours instead of 24
 ```
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+CF_WORKER_URL=https://your-worker.example.workers.dev
 PORT=3000
 CACHE_TTL_HOURS=24
 ```
@@ -218,8 +214,7 @@ instagram_api/
 │   ├── index.ts          # Express server entry
 │   ├── config.ts         # Environment & validation
 │   ├── supabase.ts       # Supabase client
-│   ├── instagram.ts      # Instagram API fetch + retry
-│   ├── storage.ts        # Image download + Supabase upload
+│   ├── instagram.ts      # Instagram API fetch + Worker proxy
 │   ├── cache.ts          # Memory + Postgres two-tier cache
 │   └── routes.ts         # API handler
 ├── supabase/

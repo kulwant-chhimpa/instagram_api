@@ -43,7 +43,7 @@ curl "http://localhost:3000/api/instagram?username=instagram" | jq
 {
   "exists": true,
   "username": "instagram",
-  "profilePic": "https://scontent-man2-1.cdninstagram.com/...",
+  "imageUrl": "https://images.pathsocial.com/api/instagram/instagram",
   "followers": 699385032,
   "following": 195
 }
@@ -173,7 +173,7 @@ tail -f /tmp/server.log
 - HTTP 200 responses
 - Real Instagram data (followers in millions)
 - Cache hits under 10ms
-- Profile pics from `scontent-*.cdninstagram.com`
+- Deterministic image URL from `images.pathsocial.com`
 - Proper error messages for invalid input
 
 ### ⚠️ Warning Signs
@@ -194,7 +194,7 @@ curl -s "http://localhost:3000/api/instagram?username=instagram" | jq '{exists, 
 ### Extract Specific Fields
 ```bash
 curl -s "http://localhost:3000/api/instagram?username=instagram" | jq '.followers'
-curl -s "http://localhost:3000/api/instagram?username=instagram" | jq '.profilePic' | head -c 80
+curl -s "http://localhost:3000/api/instagram?username=instagram" | jq '.imageUrl'
 ```
 
 ### Batch Test Multiple Users
@@ -221,14 +221,14 @@ PORT=8000 npm start
 
 ### Getting 429 (Rate Limited)
 ```bash
-# Wait 15-30 minutes for IP ban to lift
-# Or add PROXY_URL env var, then npm run build && npm start
+# Wait a bit and rely on cache hits for repeated usernames
+# Ensure CF_WORKER_URL is configured, then npm run build && npm start
 ```
 
-### Proxy errors
+### Worker URL errors
 ```bash
-# Make sure NODE_TLS_REJECT_UNAUTHORIZED is set
-export NODE_TLS_REJECT_UNAUTHORIZED=0
+# Make sure Cloudflare Worker URL is set
+export CF_WORKER_URL=https://your-worker.example.workers.dev
 npm start
 ```
 

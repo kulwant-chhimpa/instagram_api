@@ -8,7 +8,6 @@
 
 import { Router, Request, Response } from "express";
 import { fetchInstagramProfile } from "./instagram";
-import { uploadProfilePic } from "./storage";
 import { getCached, setCache } from "./cache";
 
 const router = Router();
@@ -16,16 +15,22 @@ const router = Router();
 // DEBUG endpoint: /api/debug/cache — manually set cache for testing
 router.post("/debug/cache", async (req: Request, res: Response) => {
   try {
-    const { username, profilePic, followers, following } = req.body;
-    if (!username || !profilePic) {
+    const { username, imageUrl, profilePic, followers, following } = req.body;
+    if (!username) {
       return res.status(400).json({
-        error: "Required fields: username, profilePic",
+        error: "Required field: username",
       });
     }
+
+    const normalized = username.toLowerCase();
+    const resolvedImageUrl =
+      imageUrl ||
+      profilePic ||
+      `https://images.pathsocial.com/api/instagram/${normalized}`;
     
     await setCache({
-      username: username.toLowerCase(),
-      profilePic,
+      username: normalized,
+      profilePic: resolvedImageUrl,
       followers: followers || 0,
       following: following || 0,
       cachedAt: Date.now(),
@@ -71,24 +76,12 @@ async function getProfileData(username: string) {
     return { exists: false };
   }
 
-  // Upload to Supabase
-  let publicPicUrl = profile.profilePicUrlHd;
-  try {
-    console.log(`[route] Uploading picture for @${normalized} to Supabase...`);
-    publicPicUrl = await uploadProfilePic(normalized, profile.profilePicUrlHd);
-    console.log(`[storage] Successfully uploaded @${normalized} to Supabase`);
-  } catch (err) {
-    console.warn(
-      `[storage] Upload failed, falling back to Instagram URL:`,
-      err instanceof Error ? err.message : err
-    );
-    publicPicUrl = profile.profilePicUrlHd;
-  }
+  const imageUrl = `https://images.pathsocial.com/api/instagram/${normalized}`;
 
   // Cache the result
   await setCache({
-    username: profile.username,
-    profilePic: publicPicUrl,
+    username: normalized,
+    profilePic: imageUrl,
     followers: profile.followers,
     following: profile.following,
     cachedAt: Date.now(),
@@ -96,8 +89,8 @@ async function getProfileData(username: string) {
 
   return {
     exists: true,
-    username: profile.username,
-    imageUrl: publicPicUrl,
+    username: normalized,
+    imageUrl,
     followers: profile.followers,
     following: profile.following,
   };

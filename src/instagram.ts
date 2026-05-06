@@ -12,7 +12,6 @@ import { config } from "./config";
 
 export interface InstagramProfile {
   username: string;
-  profilePicUrlHd: string;
   followers: number;
   following: number;
 }
@@ -61,8 +60,7 @@ export async function fetchInstagramProfile(
     }
 
     const profile: InstagramProfile = {
-      username: String(data.username || ""),
-      profilePicUrlHd: String(data.profilePicUrl || ""),
+      username: String(data.username || username),
       followers: Number(data.followers || 0),
       following: Number(data.following || 0),
     };

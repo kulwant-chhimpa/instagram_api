@@ -8,7 +8,7 @@ Your Instagram API is **100% production-ready** and configured for Vercel deploy
 | Component | Status | Details |
 |-----------|--------|---------|
 | **API Server** | ✅ Complete | Express.js + TypeScript |
-| **Instagram Integration** | ✅ Complete | Via Bright Data residential proxy |
+| **Instagram Integration** | ✅ Complete | Via Cloudflare Worker proxy |
 | **Caching** | ✅ Complete | Memory + Supabase Postgres |
 | **Error Handling** | ✅ Complete | Validation + fallbacks |
 | **Testing** | ✅ Complete | 2 automated test suites |
@@ -58,8 +58,7 @@ In Vercel Dashboard → **Project Settings** → **Environment Variables**:
 
 | Variable | Value |
 |----------|-------|
-| `NODE_TLS_REJECT_UNAUTHORIZED` | `0` |
-| `PROXY_URL` | `http://brd-customer-hl_889b164b-zone-residential_proxy1:gs95wzge7vp6@brd.superproxy.io:33335` |
+| `CF_WORKER_URL` | `https://instagram-api-worker.YOUR_DOMAIN.workers.dev` |
 | `SUPABASE_URL` | Your Supabase URL (optional) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Your key (optional) |
 | `CACHE_TTL_HOURS` | `24` (optional) |
@@ -91,7 +90,7 @@ Expected response:
 {
   "exists": true,
   "username": "instagram",
-  "profilePic": "https://...",
+  "imageUrl": "https://images.pathsocial.com/api/instagram/instagram",
   "followers": 699385032,
   "following": 195
 }
@@ -132,7 +131,7 @@ git push origin main
 | Service | Cost |
 |---------|------|
 | **Vercel** | Free (Hobby plan) |
-| **Bright Data Proxy** | $5.99/month |
+| **Cloudflare Workers** | Free tier |
 | **Supabase** | Free (up to 500MB) |
 | **TOTAL** | ~$6/month |
 
@@ -160,8 +159,7 @@ git push origin main
 src/
 ├── index.ts          — Express server + middleware
 ├── routes.ts         — API endpoint handler
-├── instagram.ts      — Instagram fetch (with proxy)
-├── storage.ts        — Supabase upload logic
+├── instagram.ts      — Instagram fetch (via Cloudflare Worker)
 ├── cache.ts          — Caching layer (memory + DB)
 ├── config.ts         — Env vars
 └── supabase.ts       — Supabase client

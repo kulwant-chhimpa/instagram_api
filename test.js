@@ -81,7 +81,7 @@ async function runTests() {
     await runner.assert(data.username === "cristiano", "Expected username: cristiano");
     await runner.assert(data.followers > 0, "Expected followers > 0");
     await runner.assert(data.following > 0, "Expected following > 0");
-    await runner.assert(data.profilePic, "Expected profilePic URL");
+    await runner.assert(data.imageUrl, "Expected imageUrl");
     console.log(`   → @cristiano: ${data.followers.toLocaleString()} followers`);
   });
 
@@ -160,7 +160,7 @@ async function runTests() {
       await runner.assert(typeof data.username === "string", "Expected username: string");
       await runner.assert(typeof data.followers === "number", "Expected followers: number");
       await runner.assert(typeof data.following === "number", "Expected following: number");
-      await runner.assert(typeof data.profilePic === "string", "Expected profilePic: string");
+      await runner.assert(typeof data.imageUrl === "string", "Expected imageUrl: string");
     }
   });
 

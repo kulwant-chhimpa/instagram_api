@@ -120,7 +120,7 @@ async function main() {
 
   if (failed > 0) {
     console.log(`⚠️  ${failed} test(s) failed. Check server is running:\n`);
-    console.log(`   NODE_TLS_REJECT_UNAUTHORIZED=0 npm start\n`);
+    console.log(`   npm start\n`);
     process.exit(1);
   }
 
