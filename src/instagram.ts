@@ -1,14 +1,20 @@
 /**
- * Instagram profile client via Cloudflare Worker proxy.
+ * Instagram profile client for the Plixi demo dashboard.
  *
- * Routes all Instagram requests through a Cloudflare Worker.
- * The Worker handles:
- * - Requests to Instagram's public API
- * - Caching in Cloudflare KV (24h TTL)
- * - Returns profile data without needing expensive residential proxies
+ * Fetches the public dashboard HTML directly and extracts the embedded
+ * follower/following counts, then lets the route layer derive the image URL.
  */
 
-import { config } from "./config";
+const INSTAGRAM_DASHBOARD_URL = "https://demo.plixi.com/dashboard?username=";
+
+const INSTAGRAM_HEADERS = {
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Cache-Control": "no-cache",
+  Pragma: "no-cache",
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+} as const;
 
 export interface InstagramProfile {
   username: string;
@@ -16,53 +22,75 @@ export interface InstagramProfile {
   following: number;
 }
 
-/**
- * Fetch Instagram profile via Cloudflare Worker.
- * Worker URL should be set in CF_WORKER_URL environment variable.
- * Worker handles all Instagram API calls with built-in caching.
- */
-export async function fetchInstagramProfile(
-  username: string
-): Promise<InstagramProfile | null> {
-  // Get Worker URL from config
-  const workerUrl = config.cfWorkerUrl;
-  if (!workerUrl) {
-    console.error("[instagram] CF_WORKER_URL not configured");
+function parseCount(value: string | null | undefined): number | null {
+  if (!value) {
     return null;
   }
 
+  const normalized = value.replace(/,/g, "").trim();
+  if (!/^\d+$/.test(normalized)) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function extractCount(html: string, field: "follower" | "following"): number | null {
+  const patterns =
+    field === "follower"
+      ? [
+          /const\s+get_follower\s*=\s*["']([^"']+)["']/i,
+          /id=["']profile_followers["'][^>]*>\s*([^<]+)\s*</i,
+          /"followers"\s*:\s*["']?([\d,]+)["']?/i,
+        ]
+      : [
+          /const\s+get_following\s*=\s*["']([^"']+)["']/i,
+          /id=["']profile_followings["'][^>]*>\s*([^<]+)\s*</i,
+          /"following"\s*:\s*["']?([\d,]+)["']?/i,
+        ];
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    const parsed = parseCount(match?.[1]);
+    if (parsed !== null) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+export async function fetchInstagramProfile(
+  username: string
+): Promise<InstagramProfile | null> {
   try {
-    const url = `${workerUrl}?username=${encodeURIComponent(username)}`;
-    console.log(`[instagram] Requesting from Cloudflare Worker: @${username}`);
+    const url = `${INSTAGRAM_DASHBOARD_URL}${encodeURIComponent(username)}`;
+    console.log(`[instagram] Requesting dashboard HTML: @${username}`);
 
     const response = await fetch(url, {
       method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
+      headers: INSTAGRAM_HEADERS,
     });
 
-    // 404 = user doesn't exist
-    if (response.status === 404 || !response.ok) {
-      const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-      if (!data.exists) {
-        console.log(`[instagram] User not found: @${username}`);
-        return null;
-      }
-      throw new Error(`Worker returned ${response.status}`);
+    if (!response.ok) {
+      console.log(`[instagram] Dashboard request failed for @${username}: ${response.status}`);
+      return null;
     }
 
-    const data = (await response.json()) as Record<string, unknown>;
+    const html = await response.text();
+    const followers = extractCount(html, "follower");
+    const following = extractCount(html, "following");
 
-    if (!data.exists) {
-      console.log(`[instagram] User not found: @${username}`);
+    if (followers === null || following === null) {
+      console.log(`[instagram] User not found or counts missing: @${username}`);
       return null;
     }
 
     const profile: InstagramProfile = {
-      username: String(data.username || username),
-      followers: Number(data.followers || 0),
-      following: Number(data.following || 0),
+      username,
+      followers,
+      following,
     };
 
     console.log(
@@ -71,7 +99,7 @@ export async function fetchInstagramProfile(
     return profile;
   } catch (err) {
     console.error(
-      `[instagram] Error fetching @${username} from Cloudflare Worker:`,
+      `[instagram] Error fetching @${username} from Plixi dashboard:`,
       err
     );
     return null;

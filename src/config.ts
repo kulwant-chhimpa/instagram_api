@@ -6,7 +6,6 @@ export const config = {
   supabaseUrl: process.env.SUPABASE_URL || "",
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   cacheTtlHours: parseInt(process.env.CACHE_TTL_HOURS || "24", 10),
-  cfWorkerUrl: process.env.CF_WORKER_URL || "", // Cloudflare Worker URL for Instagram API proxy
 } as const;
 
 export function validateConfig(): void {
@@ -15,8 +14,5 @@ export function validateConfig(): void {
   }
   if (!config.supabaseServiceRoleKey) {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is required");
-  }
-  if (!config.cfWorkerUrl) {
-    throw new Error("CF_WORKER_URL is required (Cloudflare Worker endpoint)");
   }
 }
