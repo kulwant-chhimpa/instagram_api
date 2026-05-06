@@ -1,0 +1,29 @@
+name: Keep-Alive Pinger
+
+on:
+  schedule:
+    # Run every 30 minutes to keep Vercel function warm
+    - cron: '*/30 * * * *'
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Ping health endpoint
+        run: |
+          echo "🔄 Pinging health endpoint to keep Vercel warm..."
+          curl -s -w "\nStatus: %{http_code} | Response time: %{time_total}s\n" \
+            "https://instagram-api-fawn.vercel.app/health"
+
+      - name: Ping API endpoint (warm cache)
+        run: |
+          echo "🔄 Pinging API endpoint to warm cache..."
+          curl -s -w "\nStatus: %{http_code} | Response time: %{time_total}s\n" \
+            "https://instagram-api-fawn.vercel.app/api/instagram?username=instagram"
+
+      - name: Check for success
+        run: |
+          echo "✅ Keep-alive ping completed successfully"
