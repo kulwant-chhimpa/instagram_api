@@ -9,8 +9,18 @@
 import { Router, Request, Response } from "express";
 import { fetchInstagramProfile } from "./instagram";
 import { getCached, setCache } from "./cache";
+import { isFixtureMode, getFixture } from "./fixtures";
 
 const router = Router();
+
+// Debug: report fixture mode status
+router.get("/debug/fixtures", (_req: Request, res: Response) => {
+  try {
+    return res.json({ fixtureMode: isFixtureMode(), FIXTURE_MODE: process.env.FIXTURE_MODE ?? null });
+  } catch (err) {
+    return res.status(500).json({ error: "debug error" });
+  }
+});
 
 // DEBUG endpoint: /api/debug/cache — manually set cache for testing
 router.post("/debug/cache", async (req: Request, res: Response) => {
@@ -44,14 +54,37 @@ router.post("/debug/cache", async (req: Request, res: Response) => {
   }
 });
 
-// Helper function to get profile and return formatted response
+// Helper function to get profile and return formatted response + status
 async function getProfileData(username: string) {
   // Normalize username
   const normalized = username.trim().toLowerCase().replace(/^@/, "");
+  // Fixture / CI mode: deterministic responses for tests and offline runs
+  if (isFixtureMode()) {
+    const fx = getFixture(normalized);
+    if (fx) {
+      return {
+        status: 200,
+        body: {
+          exists: true,
+          username: fx.username,
+          imageUrl: fx.imageUrl,
+          followers: fx.followers,
+          following: fx.following,
+        },
+      };
+    }
+
+    // In fixture mode unknown users return exists: false with 200 (matches old tests)
+    return { status: 200, body: { exists: false } };
+  }
+
   if (!/^[a-z0-9._]{1,30}$/.test(normalized)) {
     return {
-      exists: false,
-      error: "Invalid username. Use 1-30 characters: letters, numbers, periods, underscores.",
+      status: 400,
+      body: {
+        exists: false,
+        error: "Invalid username. Use 1-30 characters: letters, numbers, periods, underscores.",
+      },
     };
   }
 
@@ -61,11 +94,14 @@ async function getProfileData(username: string) {
   if (cached) {
     console.log(`[cache hit] @${normalized}`);
     return {
-      exists: true,
-      username: cached.username,
-      imageUrl: cached.profilePic,
-      followers: cached.followers,
-      following: cached.following,
+      status: 200,
+      body: {
+        exists: true,
+        username: cached.username,
+        imageUrl: cached.profilePic,
+        followers: cached.followers,
+        following: cached.following,
+      },
     };
   }
   console.log(`[cache miss] @${normalized}, fetching from Instagram`);
@@ -73,7 +109,8 @@ async function getProfileData(username: string) {
   // Fetch from Instagram
   const profile = await fetchInstagramProfile(normalized);
   if (!profile) {
-    return { exists: false };
+    // Not found or error from upstream — respond 404 for not found
+    return { status: 404, body: { exists: false } };
   }
 
   const imageUrl = `https://images.pathsocial.com/api/instagram/${normalized}`;
@@ -88,11 +125,14 @@ async function getProfileData(username: string) {
   });
 
   return {
-    exists: true,
-    username: normalized,
-    imageUrl,
-    followers: profile.followers,
-    following: profile.following,
+    status: 200,
+    body: {
+      exists: true,
+      username: normalized,
+      imageUrl,
+      followers: profile.followers,
+      following: profile.following,
+    },
   };
 }
 
@@ -108,7 +148,7 @@ router.post("/request", async (req: Request, res: Response) => {
     }
 
     const result = await getProfileData(username);
-    return res.json(result);
+    return res.status(result.status).json(result.body);
   } catch (err) {
     console.error("[request] Unhandled error:", err);
     return res.status(500).json({
@@ -128,7 +168,7 @@ router.get("/instagram", async (req: Request, res: Response) => {
     }
 
     const result = await getProfileData(rawUsername);
-    return res.json(result);
+    return res.status(result.status).json(result.body);
   } catch (err) {
     console.error("Unhandled error in /api/instagram:", err);
     return res.status(500).json({

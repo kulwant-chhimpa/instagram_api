@@ -5,17 +5,14 @@
  * follower/following counts, then lets the route layer derive the image URL.
  */
 
-const INSTAGRAM_DASHBOARD_URL = "https://demo.plixi.com/dashboard?username=";
+const INSTAGRAM_API_URL = "https://www.instagram.com/api/v1/users/web_profile_info/?username=";
 
 const INSTAGRAM_HEADERS = {
-  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-  "Accept-Language": "en-US,en;q=0.9",
-  "Cache-Control": "no-cache",
-  Pragma: "no-cache",
   "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "X-IG-App-ID": "936619743392459",
+  Accept: "application/json, text/javascript, */*; q=0.01",
 } as const;
-
 export interface InstagramProfile {
   username: string;
   followers: number;
@@ -64,44 +61,85 @@ function extractCount(html: string, field: "follower" | "following"): number | n
 export async function fetchInstagramProfile(
   username: string
 ): Promise<InstagramProfile | null> {
+  const controller = new AbortController();
+  const timeoutMs = 5000; // 5s timeout to avoid long hangs
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
-    const url = `${INSTAGRAM_DASHBOARD_URL}${encodeURIComponent(username)}`;
-    console.log(`[instagram] Requesting dashboard HTML: @${username}`);
+    const url = `${INSTAGRAM_API_URL}${encodeURIComponent(username)}`;
+    console.log(`[instagram] Requesting Instagram API: @${username}`);
 
     const response = await fetch(url, {
       method: "GET",
       headers: INSTAGRAM_HEADERS,
+      signal: controller.signal,
     });
 
+    if (response.status === 429) {
+      console.warn(`[instagram] Rate limited when fetching @${username}`);
+      return null;
+    }
+
+    if (response.status === 404) {
+      console.log(`[instagram] Instagram returned 404 for @${username}`);
+      return null;
+    }
+
     if (!response.ok) {
-      console.log(`[instagram] Dashboard request failed for @${username}: ${response.status}`);
+      console.log(`[instagram] Unexpected status ${response.status} for @${username}`);
       return null;
     }
 
-    const html = await response.text();
-    const followers = extractCount(html, "follower");
-    const following = extractCount(html, "following");
+    const data = await response.json().catch(() => null);
+    const user = data?.data?.user ?? data?.user;
 
-    if (followers === null || following === null) {
-      console.log(`[instagram] User not found or counts missing: @${username}`);
-      return null;
+    if (user && typeof user === "object") {
+      const followers = user.edge_followed_by?.count ?? user.follower_count ?? null;
+      const following = user.edge_follow?.count ?? user.following_count ?? null;
+
+      if (typeof followers === "number" && typeof following === "number") {
+        const profile: InstagramProfile = { username, followers, following };
+        console.log(`[instagram] ✓ Fetched @${profile.username} — followers: ${profile.followers}`);
+        return profile;
+      }
     }
 
-    const profile: InstagramProfile = {
-      username,
-      followers,
-      following,
-    };
+    // If the primary API response didn't contain counts (often due to blocking),
+    // attempt mirror/fallback sources (dumpor/greatfon/plixi) and parse HTML/text.
+    const mirrorSources = [
+      `https://r.jina.ai/http://dumpor.io/v/${encodeURIComponent(username)}`,
+      `https://r.jina.ai/http://dumpor.com/v/${encodeURIComponent(username)}`,
+      `https://r.jina.ai/http://www.greatfon.com/v/${encodeURIComponent(username)}`,
+      `https://demo.plixi.com/dashboard?username=${encodeURIComponent(username)}`,
+    ];
 
-    console.log(
-      `[instagram] ✓ Fetched @${profile.username} — followers: ${profile.followers}`
-    );
-    return profile;
-  } catch (err) {
-    console.error(
-      `[instagram] Error fetching @${username} from Plixi dashboard:`,
-      err
-    );
+    for (const src of mirrorSources) {
+      try {
+        const txtResp = await fetch(src, { headers: { Accept: "text/html,text/plain,*/*" } });
+        if (!txtResp.ok) continue;
+        const text = await txtResp.text();
+        const followers = extractCount(text, "follower");
+        const following = extractCount(text, "following");
+        if (followers !== null && following !== null) {
+          const profile: InstagramProfile = { username, followers, following };
+          console.log(`[instagram] ✓ Fallback fetched @${profile.username} from ${src}`);
+          return profile;
+        }
+      } catch (err) {
+        console.warn(`[instagram] Mirror fetch failed for @${username} from ${src}:`, err);
+      }
+    }
+
+    console.log(`[instagram] Unable to determine counts for @${username}`);
     return null;
+  } catch (err: any) {
+    if (err.name === "AbortError") {
+      console.error(`[instagram] Request timed out for @${username}`);
+      return null;
+    }
+    console.error(`[instagram] Error fetching @${username}:`, err);
+    return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
