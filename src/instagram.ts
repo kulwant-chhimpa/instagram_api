@@ -19,6 +19,18 @@ export interface InstagramProfile {
   following: number;
 }
 
+interface InstagramApiUser {
+  edge_followed_by?: { count?: number };
+  edge_follow?: { count?: number };
+  follower_count?: number;
+  following_count?: number;
+}
+
+interface InstagramApiResponse {
+  data?: { user?: InstagramApiUser };
+  user?: InstagramApiUser;
+}
+
 function parseCount(value: string | null | undefined): number | null {
   if (!value) {
     return null;
@@ -90,7 +102,7 @@ export async function fetchInstagramProfile(
       return null;
     }
 
-    const data = await response.json().catch(() => null);
+    const data = (await response.json().catch(() => null)) as InstagramApiResponse | null;
     const user = data?.data?.user ?? data?.user;
 
     if (user && typeof user === "object") {
