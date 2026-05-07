@@ -29,6 +29,12 @@ const FIXTURES: Record<string, FixtureProfile> = {
     following: 200,
     imageUrl: "https://images.pathsocial.com/api/instagram/kylie",
   },
+  ke44in: {
+    username: "ke44in",
+    followers: 1200,
+    following: 450,
+    imageUrl: "https://images.pathsocial.com/api/instagram/ke44in",
+  },
 };
 
 export function isFixtureMode(): boolean {

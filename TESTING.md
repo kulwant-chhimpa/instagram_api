@@ -9,7 +9,7 @@ Run these commands to test the API:
 node test.js
 ```
 
-### Quick Test (6 essential tests)
+### Quick Test (7 essential tests, includes `@ke44in`)
 ```bash
 node quick-test.js
 ```

@@ -70,7 +70,20 @@ async function main() {
     passed++;
   else failed++;
 
-  // Test 4: Cache test
+  // Test 4: Requested profile lookup
+  if (
+    await test("✓ Lookup profile @ke44in", async () => {
+      const { status, data } = await request("/api/instagram?username=ke44in");
+      if (status !== 200) throw new Error(`Status ${status}`);
+      if (!data.exists) throw new Error(`Profile not found`);
+      if (data.username !== "ke44in") throw new Error("Username mismatch");
+      console.log(`   📊 ${data.followers.toLocaleString()} followers`);
+    })
+  )
+    passed++;
+  else failed++;
+
+  // Test 5: Cache test
   if (
     await test("✓ Cache hit (instant response)", async () => {
       const start = Date.now();
@@ -84,7 +97,7 @@ async function main() {
     passed++;
   else failed++;
 
-  // Test 5: Not found
+  // Test 6: Not found
   if (
     await test(
       "✓ Not found user returns exists: false",
@@ -100,7 +113,7 @@ async function main() {
     passed++;
   else failed++;
 
-  // Test 6: Validation
+  // Test 7: Validation
   if (
     await test(
       "✓ Invalid username rejected",
@@ -116,7 +129,7 @@ async function main() {
     passed++;
   else failed++;
 
-  console.log(`\n📈 Results: ${passed}/6 passed\n`);
+  console.log(`\n📈 Results: ${passed}/7 passed\n`);
 
   if (failed > 0) {
     console.log(`⚠️  ${failed} test(s) failed. Check server is running:\n`);
