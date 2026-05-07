@@ -86,10 +86,11 @@ export default {
 
       if (!igResponse.ok) {
         if (igResponse.status === 404) {
-          return new Response(
-            JSON.stringify({ exists: false }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
-          );
+          // Profile not found — return 404 to allow clients to short-circuit
+          return new Response(JSON.stringify({ exists: false }), {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          });
         }
         throw new Error(`Instagram API returned ${igResponse.status}`);
       }
@@ -99,10 +100,10 @@ export default {
       // Extract profile information (Instagram returns data nested in data.data.user)
       const user = data?.data?.user;
       if (!user) {
-        return new Response(
-          JSON.stringify({ exists: false }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ exists: false }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
       }
 
       const profile = {

@@ -1,8 +1,8 @@
 /**
- * Instagram profile client for the Plixi demo dashboard.
+ * Instagram profile client.
  *
- * Fetches the public dashboard HTML directly and extracts the embedded
- * follower/following counts, then lets the route layer derive the image URL.
+ * Fetches the public Instagram profile API directly and returns the
+ * follower/following counts needed by the profile route.
  */
 
 const INSTAGRAM_API_URL = "https://www.instagram.com/api/v1/users/web_profile_info/?username=";
@@ -29,45 +29,6 @@ interface InstagramApiUser {
 interface InstagramApiResponse {
   data?: { user?: InstagramApiUser };
   user?: InstagramApiUser;
-}
-
-function parseCount(value: string | null | undefined): number | null {
-  if (!value) {
-    return null;
-  }
-
-  const normalized = value.replace(/,/g, "").trim();
-  if (!/^\d+$/.test(normalized)) {
-    return null;
-  }
-
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function extractCount(html: string, field: "follower" | "following"): number | null {
-  const patterns =
-    field === "follower"
-      ? [
-          /const\s+get_follower\s*=\s*["']([^"']+)["']/i,
-          /id=["']profile_followers["'][^>]*>\s*([^<]+)\s*</i,
-          /"followers"\s*:\s*["']?([\d,]+)["']?/i,
-        ]
-      : [
-          /const\s+get_following\s*=\s*["']([^"']+)["']/i,
-          /id=["']profile_followings["'][^>]*>\s*([^<]+)\s*</i,
-          /"following"\s*:\s*["']?([\d,]+)["']?/i,
-        ];
-
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
-    const parsed = parseCount(match?.[1]);
-    if (parsed !== null) {
-      return parsed;
-    }
-  }
-
-  return null;
 }
 
 export async function fetchInstagramProfile(
@@ -113,32 +74,6 @@ export async function fetchInstagramProfile(
         const profile: InstagramProfile = { username, followers, following };
         console.log(`[instagram] ✓ Fetched @${profile.username} — followers: ${profile.followers}`);
         return profile;
-      }
-    }
-
-    // If the primary API response didn't contain counts (often due to blocking),
-    // attempt mirror/fallback sources (dumpor/greatfon/plixi) and parse HTML/text.
-    const mirrorSources = [
-      `https://r.jina.ai/http://dumpor.io/v/${encodeURIComponent(username)}`,
-      `https://r.jina.ai/http://dumpor.com/v/${encodeURIComponent(username)}`,
-      `https://r.jina.ai/http://www.greatfon.com/v/${encodeURIComponent(username)}`,
-      `https://demo.plixi.com/dashboard?username=${encodeURIComponent(username)}`,
-    ];
-
-    for (const src of mirrorSources) {
-      try {
-        const txtResp = await fetch(src, { headers: { Accept: "text/html,text/plain,*/*" } });
-        if (!txtResp.ok) continue;
-        const text = await txtResp.text();
-        const followers = extractCount(text, "follower");
-        const following = extractCount(text, "following");
-        if (followers !== null && following !== null) {
-          const profile: InstagramProfile = { username, followers, following };
-          console.log(`[instagram] ✓ Fallback fetched @${profile.username} from ${src}`);
-          return profile;
-        }
-      } catch (err) {
-        console.warn(`[instagram] Mirror fetch failed for @${username} from ${src}:`, err);
       }
     }
 

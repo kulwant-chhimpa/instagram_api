@@ -54,11 +54,12 @@ vercel --prod
 | Key | Value | Example |
 |-----|-------|---------|
 | `NODE_ENV` | `production` | |
-| `CF_WORKER_URL` | Cloudflare Worker endpoint | `https://instagram-api-worker.YOUR_DOMAIN.workers.dev` |
 | `PORT` | `3000` | (Vercel sets this automatically) |
 | `SUPABASE_URL` | Your Supabase URL | `https://your-project.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Your service role key | `eyJhbGc...` |
 | `CACHE_TTL_HOURS` | `24` | (optional) |
+
+The profile scraper reads Instagram's public profile API directly, so no worker URL is required.
 
 **Important:** Never commit `.env` to GitHub — only use Vercel's environment variables.
 
@@ -111,9 +112,6 @@ Expected URLs:
 ## Environment Variables Reference
 
 ```bash
-# Required - Cloudflare Worker proxy endpoint
-CF_WORKER_URL=https://instagram-api-worker.YOUR_DOMAIN.workers.dev
-
 # Required - Supabase Postgres cache
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
@@ -123,6 +121,8 @@ PORT=3000
 CACHE_TTL_HOURS=24
 NODE_ENV=production
 ```
+
+The profile scraper reads Instagram's public profile API directly, so no worker URL is required.
 
 ---
 
@@ -139,9 +139,8 @@ Common issues:
 
 ### 429 Rate Limit Errors in Production
 
-1. Ensure `CF_WORKER_URL` is set correctly
-2. Increase cache TTL to reduce external fetches
-3. Redeploy: `vercel --prod`
+1. Increase cache TTL to reduce external fetches
+2. Redeploy: `vercel --prod`
 
 ### 502/503 Errors
 
@@ -227,7 +226,6 @@ Perfect for 100-1000 req/day! 💰
 - [ ] Code pushed to GitHub
 - [ ] Vercel project created
 - [ ] Environment variables added:
-  - [ ] `CF_WORKER_URL`
   - [ ] `SUPABASE_URL`
   - [ ] `SUPABASE_SERVICE_ROLE_KEY`
 - [ ] Redeployed after env vars

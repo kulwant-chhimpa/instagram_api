@@ -42,7 +42,8 @@ cp .env.example .env
 # Edit .env with your Supabase credentials
 # SUPABASE_URL=https://your-project.supabase.co
 # SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-# CF_WORKER_URL=https://your-worker.example.workers.dev
+
+# The profile scraper reads Instagram's public profile API directly; no worker URL is needed.
 
 # Install & build
 npm install
@@ -154,7 +155,6 @@ CACHE_TTL_HOURS=72  # 72 hours instead of 24
 ```
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-CF_WORKER_URL=https://your-worker.example.workers.dev
 PORT=3000
 CACHE_TTL_HOURS=24
 ```

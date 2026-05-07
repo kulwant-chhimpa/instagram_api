@@ -222,13 +222,12 @@ PORT=8000 npm start
 ### Getting 429 (Rate Limited)
 ```bash
 # Wait a bit and rely on cache hits for repeated usernames
-# Ensure CF_WORKER_URL is configured, then npm run build && npm start
+# Then run npm run build && npm start
 ```
 
-### Worker URL errors
+### Dashboard fetch errors
 ```bash
-# Make sure Cloudflare Worker URL is set
-export CF_WORKER_URL=https://your-worker.example.workers.dev
+# Verify the Plixi dashboard endpoint is reachable from your environment
 npm start
 ```
 

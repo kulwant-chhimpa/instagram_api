@@ -53,9 +53,7 @@ Output will show your Worker URL:
 
 Add to Vercel (or your deployment):
 
-```
-CF_WORKER_URL=https://instagram-api-worker.YOUR_DOMAIN.workers.dev
-```
+The profile scraper reads the Plixi dashboard directly, so no worker URL is required.
 
 Remove these (no longer needed):
 - `PROXY_URL` ❌
@@ -159,13 +157,9 @@ You'll see:
 
 ## 💡 Troubleshooting
 
-### "CF_WORKER_URL not configured"
+### "Worker URL not configured"
 
-Add `CF_WORKER_URL` to your environment variables:
-
-```bash
-export CF_WORKER_URL=https://instagram-api-worker.YOUR_DOMAIN.workers.dev
-```
+No worker URL is needed anymore. The scraper fetches the dashboard directly.
 
 ### Worker returns 429 (Rate Limited)
 
@@ -199,7 +193,7 @@ Make sure:
 ## 🚀 Next Steps
 
 1. ✅ Deploy Cloudflare Worker
-2. ✅ Add `CF_WORKER_URL` to environment
+2. ✅ No worker URL is required
 3. ✅ Redeploy your API
 4. ✅ Remove `PROXY_URL` and `NODE_TLS_REJECT_UNAUTHORIZED`
 5. ✅ Test: `curl "your-api/api/instagram?username=instagram"`

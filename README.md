@@ -13,13 +13,13 @@ GET /api/instagram?username=<username>
   ├─ Cache hit? → Return cached response (memory → Supabase Postgres)
   │
   └─ Cache miss:
-       ├─ Fetch follower/following from Instagram public web API
-       ├─ Build image URL: https://images.pathsocial.com/api/instagram/<username>
-       ├─ Cache result (memory + Postgres)
-       └─ Return JSON response
+      ├─ Fetch the public Instagram profile API directly
+      ├─ Build image URL: https://images.pathsocial.com/api/instagram/<username>
+      ├─ Cache result (memory + Postgres)
+      └─ Return JSON response
 ```
 
-**Stack:** Express.js + TypeScript + Supabase Postgres + Cloudflare Worker proxy
+**Stack:** Express.js + TypeScript + Supabase Postgres
 
 **Why Express over Cloudflare Workers:**
 - Full control over outbound HTTP headers (critical for Instagram's UA validation)
@@ -38,7 +38,7 @@ GET /api/instagram?username=<username>
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Service role key (not the anon key) |
 | `PORT` | | Server port (default: `3000`) |
 | `CACHE_TTL_HOURS` | | Cache duration in hours (default: `24`) |
-| `CF_WORKER_URL` | ✅ | Cloudflare Worker endpoint used as Instagram API proxy |
+| `CF_WORKER_URL` | | Legacy worker setting, no longer required |
 
 ---
 
@@ -132,7 +132,6 @@ Fast global deployment.
 
 ```bash
 fly launch
-fly secrets set CF_WORKER_URL=...
 fly deploy
 ```
 
@@ -147,6 +146,20 @@ RUN npm ci && npm run build
 EXPOSE 3000
 CMD ["npm", "start"]
 ```
+
+### **Option 5: Azure App Service for Post Engagements**
+The post engagement scraper now lives in `Post-scraper/` as a separate Express app.
+
+```bash
+npm run build
+npm start
+```
+
+This service exposes:
+- `GET /health`
+- `GET /api/instagram/posts?username=<username>`
+
+It returns the last 5 public posts or reels when available, or fewer if the account has less than 5 visible items.
 
 ---
 
@@ -242,7 +255,7 @@ Cache flow:
 
 - [ ] Supabase project created
 - [ ] Cache table `instagram_cache` created via SQL
-- [ ] `.env` configured with `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `CF_WORKER_URL`
+- [ ] `.env` configured with `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `CACHE_TTL_HOURS` as needed
 - [ ] `npm install` completed
 - [ ] `npm run build` succeeds
 - [ ] `npm start` runs without errors
@@ -272,44 +285,27 @@ supabase/
 
 ### Issue: "Instagram API returned 429" (Rate Limited)
 
-Instagram's public web endpoint has aggressive rate-limiting to prevent bot abuse.
+Instagram's public profile API can be rate-limited.
 
 **Why this happens:**
-- The endpoint `/api/v1/users/web_profile_info/` is designed for browser use, not programmatic access
+- The endpoint `/api/v1/users/web_profile_info/` is designed for browser use, not heavy programmatic access
 - Instagram rate-limits by IP and user agent
 - Multiple rapid requests from the same IP trigger 429 responses
-- Your IP may be flagged if you've tested multiple scraping solutions
 
 **Solutions:**
 
 1. **Long cache TTL** (recommended for low-traffic services)
-   - Increase `CACHE_TTL_HOURS` to 48 or 72 hours
-   - Set in `.env`: `CACHE_TTL_HOURS=72`
-   - Once a user is cached, no Instagram request needed for 72h
+  - Increase `CACHE_TTL_HOURS` to 48 or 72 hours
+  - Set in `.env`: `CACHE_TTL_HOURS=72`
+  - Once a user is cached, no Instagram request needed for 72h
 
-2. **Exponential backoff retry** (built-in)
-   - The service automatically retries 3 times with 2s, 4s, 8s delays
-   - If all retries fail, the API returns `{ exists: false }`
+2. **Use the health endpoint for smoke tests**
+  - When validating deployment, prefer `GET /health` over repeated profile lookups
 
-3. **Use a Cloudflare Worker proxy endpoint**
-  - Deploy/verify your Worker URL and set `CF_WORKER_URL`
-  - Rebuild and restart: `npm run build && npm start`
-  - Your API requests route through the Worker, which can cache upstream responses
-
-4. **Wait for IP to be unbanned**
-   - Instagram's IP bans are temporary (24-48 hours)
-   - Use a different network (phone hotspot, different WiFi) to test meanwhile
-
-5. **For production at scale (1000+ req/day):**
-   - Use **Instagram Graph API** instead (requires app approval)
-   - Implement a request queue with delays (e.g., 1 request/second)
-   - Use a residential proxy service for unlimited requests
-   - Store session cookies if available
-
-6. **For development/testing:**
-   - Wait 10–15 minutes between test runs
-   - Use different usernames each time
-   - Consider testing with the health endpoint instead: `GET /health`
+3. **For production at scale (1000+ req/day):**
+  - Use **Instagram Graph API** instead (requires app approval)
+  - Implement a request queue with delays (e.g., 1 request/second)
+  - Store session cookies if available
 
 ---
 

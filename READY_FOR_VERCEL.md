@@ -58,10 +58,11 @@ In Vercel Dashboard → **Project Settings** → **Environment Variables**:
 
 | Variable | Value |
 |----------|-------|
-| `CF_WORKER_URL` | `https://instagram-api-worker.YOUR_DOMAIN.workers.dev` |
 | `SUPABASE_URL` | Your Supabase URL (optional) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Your key (optional) |
 | `CACHE_TTL_HOURS` | `24` (optional) |
+
+No worker URL is needed for profile scraping anymore.
 
 Then redeploy:
 ```bash
